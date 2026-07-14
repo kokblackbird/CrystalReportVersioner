@@ -158,6 +158,55 @@ namespace ironmanx_04_2
  }
  }
 
+ private async void ExportForAiButton_Click(object sender, RoutedEventArgs e)
+ {
+ try
+ {
+ var path = (OriginalPathText.Text ?? string.Empty).Trim();
+ if (string.IsNullOrWhiteSpace(path)) { Warn("No report file specified in the Original (.rpt) field."); return; }
+ if (!File.Exists(path)) { Warn("Original file not found: " + path); return; }
+
+ Log("Extracting report metadata for AI export...");
+ ExportForAiButton.IsEnabled = false;
+ try
+ {
+ List<string> logger;
+ string json = await Task.Run(() => CrystalAnalyzer.ExtractReportMetadata(path, out logger));
+
+ if (json == null)
+ {
+ Warn("Export failed — Crystal runtime not available or report could not be loaded.");
+ return;
+ }
+
+ var reportName = Path.GetFileNameWithoutExtension(path);
+ var defaultFileName = reportName + "_ai.json";
+ var defaultDir = Path.GetDirectoryName(path) ?? string.Empty;
+
+ var dlg = new SaveFileDialog
+ {
+ Title = "Save AI Export",
+ Filter = "JSON file (*.json)|*.json|All files (*.*)|*.*",
+ FileName = defaultFileName,
+ InitialDirectory = defaultDir
+ };
+
+ if (!dlg.ShowDialog(this).GetValueOrDefault()) { Log("Export cancelled."); return; }
+
+ File.WriteAllText(dlg.FileName, json, Encoding.UTF8);
+ Log("AI export saved: " + dlg.FileName);
+ }
+ finally
+ {
+ ExportForAiButton.IsEnabled = true;
+ }
+ }
+ catch (Exception ex)
+ {
+ Warn("Export for AI failed: " + ex.Message);
+ }
+ }
+
  private async void ArchiveButton_Click(object sender, RoutedEventArgs e)
  {
  try
@@ -688,6 +737,497 @@ namespace ironmanx_04_2
  logger.Add("Crystal analysis failed: " + ex.Message);
  return null;
  }
+ }
+
+ public static string ExtractReportMetadata(string path, out List<string> logger)
+ {
+ logger = new List<string>();
+ try
+ {
+ var asm = TryLoadCrystalAssembly(logger);
+ if (asm == null)
+ {
+ logger.Add("CrystalDecisions assemblies not found.");
+ return null;
+ }
+ var reportDocType = asm.GetType("CrystalDecisions.CrystalReports.Engine.ReportDocument");
+ if (reportDocType == null)
+ {
+ logger.Add("ReportDocument type not found.");
+ return null;
+ }
+
+ object doc = null;
+ try
+ {
+ doc = Activator.CreateInstance(reportDocType);
+ var load = reportDocType.GetMethod("Load", new[] { typeof(string) });
+ if (load == null) { logger.Add("ReportDocument.Load not found."); return null; }
+ load.Invoke(doc, new object[] { path });
+ return BuildMetadataJson(reportDocType, doc, path, logger);
+ }
+ finally
+ {
+ TryDisposeCrystal(reportDocType, doc);
+ }
+ }
+ catch (Exception ex)
+ {
+ logger.Add("ExtractReportMetadata failed: " + ex.Message);
+ return null;
+ }
+ }
+
+ private static string BuildMetadataJson(Type reportDocType, object doc, string filePath, List<string> logger)
+ {
+ var sb = new StringBuilder();
+ sb.Append("{");
+
+ // ── Top-level scalars ──────────────────────────────────────────────
+ JsonProp(sb, "exportedAt", DateTime.UtcNow.ToString("u"), first: true);
+ JsonProp(sb, "filePath", filePath);
+ JsonProp(sb, "reportName", SafeString(reportDocType, doc, "Name", logger));
+ JsonProp(sb, "recordSelectionFormula", SafeString(reportDocType, doc, "RecordSelectionFormula", logger));
+ JsonProp(sb, "groupSelectionFormula", SafeString(reportDocType, doc, "GroupSelectionFormula", logger));
+
+ // ── DataDefinition ────────────────────────────────────────────────
+ var dataDefProp = reportDocType.GetProperty("DataDefinition");
+ object dataDef = null;
+ try { dataDef = dataDefProp != null ? dataDefProp.GetValue(doc, null) : null; } catch { }
+
+ sb.Append(",\"formulaFields\":");
+ BuildFormulaFields(sb, dataDef, logger);
+
+ sb.Append(",\"parameterFields\":");
+ BuildParameterFields(sb, dataDef, logger);
+
+ sb.Append(",\"sortFields\":");
+ BuildSortFields(sb, dataDef, logger);
+
+ sb.Append(",\"groupFields\":");
+ BuildGroupFields(sb, dataDef, logger);
+
+ sb.Append(",\"runningTotalFields\":");
+ BuildRunningTotalFields(sb, dataDef, logger);
+
+ // ── Database / tables ─────────────────────────────────────────────
+ sb.Append(",\"databaseTables\":");
+ BuildDatabaseTables(sb, reportDocType, doc, logger);
+
+ // ── Report sections / objects ─────────────────────────────────────
+ sb.Append(",\"sections\":");
+ BuildSections(sb, reportDocType, doc, logger);
+
+ // ── Subreports (named) ────────────────────────────────────────────
+ sb.Append(",\"subreports\":");
+ BuildSubreports(sb, reportDocType, doc, logger);
+
+ sb.Append("}");
+ return sb.ToString();
+ }
+
+ // ── Section builders ──────────────────────────────────────────────
+
+ private static void BuildFormulaFields(StringBuilder sb, object dataDef, List<string> logger)
+ {
+ sb.Append("[");
+ if (dataDef == null) { sb.Append("]"); return; }
+ try
+ {
+ var coll = GetCollection(dataDef, "FormulaFields");
+ bool first = true;
+ foreach (var item in coll)
+ {
+ if (!first) sb.Append(","); first = false;
+ var t = item.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(t, item, "Name"), first: true);
+ JsonProp(sb, "text", PropString(t, item, "Text"));
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("FormulaFields error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildParameterFields(StringBuilder sb, object dataDef, List<string> logger)
+ {
+ sb.Append("[");
+ if (dataDef == null) { sb.Append("]"); return; }
+ try
+ {
+ var coll = GetCollection(dataDef, "ParameterFields");
+ bool first = true;
+ foreach (var item in coll)
+ {
+ if (!first) sb.Append(","); first = false;
+ var t = item.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(t, item, "Name"), first: true);
+ JsonProp(sb, "promptText", PropString(t, item, "PromptText"));
+ JsonProp(sb, "valueType", PropToString(t, item, "ParameterValueType"));
+ JsonProp(sb, "allowMultipleValues", PropToString(t, item, "EnableAllowMultipleValue"));
+ // default values — best-effort
+ sb.Append(",\"defaultValues\":");
+ try
+ {
+ var dvProp = t.GetProperty("DefaultValues");
+ var dvColl = dvProp != null ? dvProp.GetValue(item, null) as System.Collections.IEnumerable : null;
+ sb.Append("[");
+ bool dfFirst = true;
+ if (dvColl != null)
+ {
+ foreach (var dv in dvColl)
+ {
+ if (!dfFirst) sb.Append(","); dfFirst = false;
+ var vt = dv.GetType();
+ var valProp = vt.GetProperty("Value");
+ var val = valProp != null ? valProp.GetValue(dv, null) : null;
+ sb.Append(JsonString(val != null ? val.ToString() : string.Empty));
+ }
+ }
+ sb.Append("]");
+ }
+ catch { sb.Append("[]"); }
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("ParameterFields error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildSortFields(StringBuilder sb, object dataDef, List<string> logger)
+ {
+ sb.Append("[");
+ if (dataDef == null) { sb.Append("]"); return; }
+ try
+ {
+ var coll = GetCollection(dataDef, "SortFields");
+ bool first = true;
+ foreach (var item in coll)
+ {
+ if (!first) sb.Append(","); first = false;
+ var t = item.GetType();
+ sb.Append("{");
+ // Field.FormulaName or Field.Name
+ string fieldName = string.Empty;
+ try
+ {
+ var fieldProp = t.GetProperty("Field");
+ var field = fieldProp != null ? fieldProp.GetValue(item, null) : null;
+ if (field != null)
+ {
+ var ft = field.GetType();
+ fieldName = PropString(ft, field, "FormulaName");
+ if (string.IsNullOrEmpty(fieldName)) fieldName = PropString(ft, field, "Name");
+ }
+ }
+ catch { }
+ JsonProp(sb, "field", fieldName, first: true);
+ JsonProp(sb, "sortDirection", PropToString(t, item, "SortDirection"));
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("SortFields error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildGroupFields(StringBuilder sb, object dataDef, List<string> logger)
+ {
+ sb.Append("[");
+ if (dataDef == null) { sb.Append("]"); return; }
+ try
+ {
+ var coll = GetCollection(dataDef, "GroupNameFields");
+ bool first = true;
+ foreach (var item in coll)
+ {
+ if (!first) sb.Append(","); first = false;
+ var t = item.GetType();
+ sb.Append("{");
+ string fieldName = string.Empty;
+ try
+ {
+ var fieldProp = t.GetProperty("Field");
+ var field = fieldProp != null ? fieldProp.GetValue(item, null) : null;
+ if (field != null)
+ {
+ var ft = field.GetType();
+ fieldName = PropString(ft, field, "FormulaName");
+ if (string.IsNullOrEmpty(fieldName)) fieldName = PropString(ft, field, "Name");
+ }
+ }
+ catch { }
+ JsonProp(sb, "field", fieldName, first: true);
+ JsonProp(sb, "condition", PropToString(t, item, "Condition"));
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("GroupNameFields error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildRunningTotalFields(StringBuilder sb, object dataDef, List<string> logger)
+ {
+ sb.Append("[");
+ if (dataDef == null) { sb.Append("]"); return; }
+ try
+ {
+ var coll = GetCollection(dataDef, "RunningTotalFields");
+ bool first = true;
+ foreach (var item in coll)
+ {
+ if (!first) sb.Append(","); first = false;
+ var t = item.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(t, item, "Name"), first: true);
+ // summarized field name
+ string summarizedField = string.Empty;
+ try
+ {
+ var sfProp = t.GetProperty("SummarizedField");
+ var sf = sfProp != null ? sfProp.GetValue(item, null) : null;
+ if (sf != null)
+ {
+ var sft = sf.GetType();
+ summarizedField = PropString(sft, sf, "FormulaName");
+ if (string.IsNullOrEmpty(summarizedField)) summarizedField = PropString(sft, sf, "Name");
+ }
+ }
+ catch { }
+ JsonProp(sb, "summarizedField", summarizedField);
+ JsonProp(sb, "operation", PropToString(t, item, "Operation"));
+ JsonProp(sb, "evaluateCondition", PropToString(t, item, "EvaluationCondition"));
+ JsonProp(sb, "resetCondition", PropToString(t, item, "ResetCondition"));
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("RunningTotalFields error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildDatabaseTables(StringBuilder sb, Type reportDocType, object doc, List<string> logger)
+ {
+ sb.Append("[");
+ try
+ {
+ var dbProp = reportDocType.GetProperty("Database");
+ var db = dbProp != null ? dbProp.GetValue(doc, null) : null;
+ if (db == null) { sb.Append("]"); return; }
+ var tablesProp = db.GetType().GetProperty("Tables");
+ var tables = tablesProp != null ? tablesProp.GetValue(db, null) as System.Collections.IEnumerable : null;
+ if (tables == null) { sb.Append("]"); return; }
+
+ bool first = true;
+ foreach (var table in tables)
+ {
+ if (!first) sb.Append(","); first = false;
+ var tt = table.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(tt, table, "Name"), first: true);
+ JsonProp(sb, "location", PropString(tt, table, "Location"));
+ // table fields
+ sb.Append(",\"fields\":");
+ try
+ {
+ var fieldsProp = tt.GetProperty("Fields");
+ var fields = fieldsProp != null ? fieldsProp.GetValue(table, null) as System.Collections.IEnumerable : null;
+ sb.Append("[");
+ bool fFirst = true;
+ if (fields != null)
+ {
+ foreach (var field in fields)
+ {
+ if (!fFirst) sb.Append(","); fFirst = false;
+ var ft = field.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(ft, field, "Name"), first: true);
+ JsonProp(sb, "type", PropToString(ft, field, "Type"));
+ sb.Append("}");
+ }
+ }
+ sb.Append("]");
+ }
+ catch { sb.Append("[]"); }
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("Database.Tables error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildSections(StringBuilder sb, Type reportDocType, object doc, List<string> logger)
+ {
+ sb.Append("[");
+ try
+ {
+ var rdProp = reportDocType.GetProperty("ReportDefinition");
+ var rd = rdProp != null ? rdProp.GetValue(doc, null) : null;
+ if (rd == null) { sb.Append("]"); return; }
+ var sectProp = rd.GetType().GetProperty("Sections");
+ var sections = sectProp != null ? sectProp.GetValue(rd, null) as System.Collections.IEnumerable : null;
+ if (sections == null) { sb.Append("]"); return; }
+
+ bool firstSect = true;
+ foreach (var section in sections)
+ {
+ if (!firstSect) sb.Append(","); firstSect = false;
+ var st = section.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(st, section, "Name"), first: true);
+ JsonProp(sb, "kind", PropToString(st, section, "Kind"));
+ sb.Append(",\"reportObjects\":");
+ try
+ {
+ var roProp = st.GetProperty("ReportObjects");
+ var ros = roProp != null ? roProp.GetValue(section, null) as System.Collections.IEnumerable : null;
+ sb.Append("[");
+ bool firstObj = true;
+ if (ros != null)
+ {
+ foreach (var ro in ros)
+ {
+ if (!firstObj) sb.Append(","); firstObj = false;
+ var rot = ro.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(rot, ro, "Name"), first: true);
+ JsonProp(sb, "kind", PropToString(rot, ro, "Kind"));
+ // FieldObject → DataSource formula name / field alias
+ string dataSource = string.Empty;
+ try
+ {
+ var dsProp = rot.GetProperty("DataSource");
+ var ds = dsProp != null ? dsProp.GetValue(ro, null) : null;
+ if (ds != null)
+ {
+ var dst = ds.GetType();
+ dataSource = PropString(dst, ds, "FormulaName");
+ if (string.IsNullOrEmpty(dataSource)) dataSource = PropString(dst, ds, "Name");
+ }
+ }
+ catch { }
+ if (!string.IsNullOrEmpty(dataSource)) JsonProp(sb, "dataSource", dataSource);
+ // TextObject → Text
+ try
+ {
+ var txtProp = rot.GetProperty("Text");
+ var txt = txtProp != null ? txtProp.GetValue(ro, null) as string : null;
+ if (!string.IsNullOrEmpty(txt)) JsonProp(sb, "text", txt);
+ }
+ catch { }
+ // SubreportObject → SubreportName
+ try
+ {
+ var srProp = rot.GetProperty("SubreportName");
+ var srName = srProp != null ? srProp.GetValue(ro, null) as string : null;
+ if (!string.IsNullOrEmpty(srName)) JsonProp(sb, "subreportName", srName);
+ }
+ catch { }
+ sb.Append("}");
+ }
+ }
+ sb.Append("]");
+ }
+ catch { sb.Append("[]"); }
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("Sections error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ private static void BuildSubreports(StringBuilder sb, Type reportDocType, object doc, List<string> logger)
+ {
+ sb.Append("[");
+ try
+ {
+ var srProp = reportDocType.GetProperty("Subreports");
+ var subreports = srProp != null ? srProp.GetValue(doc, null) as System.Collections.IEnumerable : null;
+ if (subreports == null) { sb.Append("]"); return; }
+ bool first = true;
+ foreach (var sr in subreports)
+ {
+ if (!first) sb.Append(","); first = false;
+ var srt = sr.GetType();
+ sb.Append("{");
+ JsonProp(sb, "name", PropString(srt, sr, "Name"), first: true);
+ JsonProp(sb, "recordSelectionFormula", SafeString(srt, sr, "RecordSelectionFormula", logger));
+ // subreport formula fields
+ sb.Append(",\"formulaFields\":");
+ try
+ {
+ var ddProp = srt.GetProperty("DataDefinition");
+ var dd = ddProp != null ? ddProp.GetValue(sr, null) : null;
+ BuildFormulaFields(sb, dd, logger);
+ }
+ catch { sb.Append("[]"); }
+ sb.Append("}");
+ }
+ }
+ catch (Exception ex) { logger.Add("Subreports error: " + ex.Message); }
+ sb.Append("]");
+ }
+
+ // ── JSON helpers ──────────────────────────────────────────────────
+
+ private static void JsonProp(StringBuilder sb, string key, string value, bool first = false)
+ {
+ if (!first) sb.Append(",");
+ sb.Append(JsonString(key));
+ sb.Append(":");
+ sb.Append(JsonString(value ?? string.Empty));
+ }
+
+ private static string JsonString(string s)
+ {
+ if (s == null) return "null";
+ var sb = new StringBuilder();
+ sb.Append('"');
+ foreach (var c in s)
+ {
+ switch (c)
+ {
+ case '"': sb.Append("\\\""); break;
+ case '\\': sb.Append("\\\\"); break;
+ case '\n': sb.Append("\\n"); break;
+ case '\r': sb.Append("\\r"); break;
+ case '\t': sb.Append("\\t"); break;
+ default:
+ if (c < 0x20) sb.AppendFormat("\\u{0:x4}", (int)c);
+ else sb.Append(c);
+ break;
+ }
+ }
+ sb.Append('"');
+ return sb.ToString();
+ }
+
+ private static string SafeString(Type t, object obj, string propName, List<string> logger)
+ {
+ try
+ {
+ var p = t.GetProperty(propName);
+ return p != null ? (p.GetValue(obj, null) as string ?? string.Empty) : string.Empty;
+ }
+ catch (Exception ex) { if (logger != null) logger.Add(propName + " read error: " + ex.Message); return string.Empty; }
+ }
+
+ private static string PropString(Type t, object obj, string propName)
+ {
+ try { var p = t.GetProperty(propName); return p != null ? (p.GetValue(obj, null) as string ?? string.Empty) : string.Empty; }
+ catch { return string.Empty; }
+ }
+
+ private static string PropToString(Type t, object obj, string propName)
+ {
+ try { var p = t.GetProperty(propName); var v = p != null ? p.GetValue(obj, null) : null; return v != null ? v.ToString() : string.Empty; }
+ catch { return string.Empty; }
+ }
+
+ private static System.Collections.IEnumerable GetCollection(object parent, string propName)
+ {
+ var p = parent.GetType().GetProperty(propName);
+ return p != null ? p.GetValue(parent, null) as System.Collections.IEnumerable : System.Linq.Enumerable.Empty<object>();
  }
 
  public static bool IsRuntimeAvailable(out string reason)

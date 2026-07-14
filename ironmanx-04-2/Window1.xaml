@@ -155,6 +155,7 @@
 
         <!-- Actions -->
         <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,4">
+            <Button x:Name="ExportForAiButton" Width="140" Margin="0,0,8,0" Content="Export for AI" Click="ExportForAiButton_Click"/>
             <Button x:Name="RevertButton" Width="160" Margin="0,0,8,0" Content="Revert to Last Change" Click="RevertButton_Click"/>
             <Button x:Name="ArchiveButton" Width="140" Margin="0,0,8,0" Content="Push Changes" Click="ArchiveButton_Click"/>
             <Button x:Name="OpenArchiveButton" Width="190" Content="Open Archive Folder" Click="OpenArchiveButton_Click"/>

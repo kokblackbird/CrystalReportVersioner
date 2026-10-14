@@ -1,0 +1,91 @@
+﻿<Window x:Class="ironmanx_04_2.AiAgentWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Report Agent" Height="760" Width="1000"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1B22">
+    <Window.Resources>
+        <SolidColorBrush x:Key="BrushSurface" Color="#FF122733"/>
+        <SolidColorBrush x:Key="BrushBorderDark" Color="#FF1F3A46"/>
+        <SolidColorBrush x:Key="BrushTextPrimary" Color="#FFE6F9FF"/>
+        <SolidColorBrush x:Key="BrushTextMuted" Color="#FFA5C7D1"/>
+        <SolidColorBrush x:Key="BrushCyan" Color="#FF00E5FF"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource BrushCyan}"/>
+            <Setter Property="Padding" Value="6,4"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushCyan}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="300"/>
+        </Grid.ColumnDefinitions>
+
+        <TextBlock x:Name="ReportPathText" Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,8" TextTrimming="CharacterEllipsis"/>
+
+        <GroupBox Grid.Row="1" Grid.Column="0" Header="Conversation" Margin="0,0,8,8">
+            <TextBox x:Name="TranscriptText" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"/>
+        </GroupBox>
+
+        <Grid Grid.Row="1" Grid.Column="1" Margin="0,0,0,8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <GroupBox Grid.Row="0" Header="Pending changes" Margin="0,0,0,8">
+                <ListBox x:Name="ChangesList" Background="{StaticResource BrushSurface}" Foreground="{StaticResource BrushTextPrimary}"
+                         BorderBrush="{StaticResource BrushBorderDark}"/>
+            </GroupBox>
+            <GroupBox Grid.Row="1" Header="Reference documents">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                        <Button Content="Add..." Width="70" Margin="0,0,6,0" Click="AddResource_Click"/>
+                        <Button Content="Remove" Width="70" Click="RemoveResource_Click"/>
+                    </StackPanel>
+                    <ListBox x:Name="ResourcesList" Background="{StaticResource BrushSurface}" Foreground="{StaticResource BrushTextPrimary}"
+                             BorderBrush="{StaticResource BrushBorderDark}" SelectionMode="Extended" AllowDrop="True" Drop="ResourcesList_Drop"
+                             ToolTip="Specs, business rules, SQL, sample formulas, style guides (.txt .md .sql .json .csv .xml .html .docx .doc .pdf .xlsx .xls). Drag files here."/>
+                </DockPanel>
+            </GroupBox>
+        </Grid>
+
+        <TextBox x:Name="PromptText" Grid.Row="2" Grid.ColumnSpan="2" Height="90" AcceptsReturn="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto" Margin="0,0,0,8"
+                 ToolTip="Describe what to change, e.g. 'Add a subreport in the group footer listing the customer's last 5 orders'. Ctrl+Enter to send."
+                 PreviewKeyDown="PromptText_PreviewKeyDown"/>
+
+        <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="AI Settings..." Width="110" Margin="0,0,8,0" Click="Settings_Click"/>
+            <Button x:Name="StopButton" Content="Stop" Width="90" Margin="0,0,8,0" IsEnabled="False" Click="Stop_Click"/>
+            <Button x:Name="SendButton" Content="Send (Ctrl+Enter)" Width="140" Margin="0,0,8,0" Click="Send_Click"/>
+            <Button x:Name="SaveButton" Content="Save as Changed .rpt..." Width="170" IsEnabled="False" Click="Save_Click"/>
+        </StackPanel>
+
+        <TextBlock x:Name="StatusText" Grid.Row="4" Grid.ColumnSpan="2" Margin="0,8,0,0" Foreground="{StaticResource BrushTextMuted}" Text="Loading report..."/>
+    </Grid>
+</Window>

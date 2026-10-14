@@ -1,0 +1,195 @@
+<Window x:Class="ironmanx_04_2.AiSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Agent Settings" Height="720" Width="720"
+        WindowStartupLocation="CenterOwner"
+        Background="#0D1B22">
+    <Window.Resources>
+        <SolidColorBrush x:Key="BrushSurface" Color="#FF122733"/>
+        <SolidColorBrush x:Key="BrushBorderDark" Color="#FF1F3A46"/>
+        <SolidColorBrush x:Key="BrushTextPrimary" Color="#FFE6F9FF"/>
+        <SolidColorBrush x:Key="BrushTextMuted" Color="#FFA5C7D1"/>
+        <SolidColorBrush x:Key="BrushCyan" Color="#FF00E5FF"/>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,8,6"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource BrushCyan}"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource BrushCyan}"/>
+            <Setter Property="Padding" Value="4,3"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource BrushTextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource BrushSurface}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
+        <Style TargetType="GroupBox">
+            <Setter Property="Foreground" Value="{StaticResource BrushCyan}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BrushBorderDark}"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
+            <Setter Property="Padding" Value="8"/>
+        </Style>
+    </Window.Resources>
+
+    <DockPanel Margin="12">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <TextBlock x:Name="StatusText" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,12,0"/>
+            <Button Content="Test OpenAI" Width="110" Margin="0,0,8,0" Click="TestOpenAi_Click"/>
+            <Button Content="Test Database" Width="110" Margin="0,0,8,0" Click="TestDb_Click"/>
+            <Button Content="Save" Width="90" Margin="0,0,8,0" IsDefault="True" Click="Save_Click"/>
+            <Button Content="Cancel" Width="90" IsCancel="True"/>
+        </StackPanel>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <GroupBox Header="OpenAI">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="API key:"/>
+                        <PasswordBox x:Name="ApiKeyBox" Grid.Row="0" Grid.Column="1"/>
+                        <TextBlock Grid.Row="1" Text="Base URL:"/>
+                        <TextBox x:Name="BaseUrlText" Grid.Row="1" Grid.Column="1"/>
+                        <TextBlock Grid.Row="2" Text="Model / reasoning effort:"/>
+                        <Grid Grid.Row="2" Grid.Column="1" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="ModelCombo" IsEditable="True"
+                                      ToolTip="Type any model ID your key has access to, or click 'Load from account'.">
+                                <ComboBoxItem Content="gpt-5"/>
+                                <ComboBoxItem Content="gpt-5-mini"/>
+                                <ComboBoxItem Content="gpt-5-nano"/>
+                                <ComboBoxItem Content="o3"/>
+                                <ComboBoxItem Content="o4-mini"/>
+                                <ComboBoxItem Content="gpt-4.1"/>
+                                <ComboBoxItem Content="gpt-4.1-mini"/>
+                                <ComboBoxItem Content="gpt-4o"/>
+                            </ComboBox>
+                            <Button Grid.Column="1" Content="Load from account" Margin="6,0,0,0" Click="LoadModels_Click"/>
+                            <ComboBox x:Name="EffortCombo" Grid.Column="2" Width="110" Margin="6,0,0,0"
+                                      ToolTip="Reasoning effort (gpt-5 / o-series only). Higher = smarter but slower and more expensive.">
+                                <ComboBoxItem Content="default"/>
+                                <ComboBoxItem Content="minimal"/>
+                                <ComboBoxItem Content="low"/>
+                                <ComboBoxItem Content="medium"/>
+                                <ComboBoxItem Content="high"/>
+                            </ComboBox>
+                        </Grid>
+                        <TextBlock Grid.Row="3" Text="Organization (optional):"/>
+                        <TextBox x:Name="OrgText" Grid.Row="3" Grid.Column="1"/>
+                        <TextBlock Grid.Row="4" Text="Project (optional):"/>
+                        <TextBox x:Name="ProjectText" Grid.Row="4" Grid.Column="1"/>
+                        <TextBlock Grid.Row="5" Text="Temperature (0-2):"/>
+                        <TextBox x:Name="TemperatureText" Grid.Row="5" Grid.Column="1"/>
+                        <TextBlock Grid.Row="6" Text="Max agent steps:"/>
+                        <TextBox x:Name="MaxIterationsText" Grid.Row="6" Grid.Column="1"/>
+                        <TextBlock Grid.Row="7" Text="Request timeout (sec):"/>
+                        <TextBox x:Name="TimeoutText" Grid.Row="7" Grid.Column="1"/>
+                        <TextBlock Grid.Row="8" Text="Extra instructions:" VerticalAlignment="Top"/>
+                        <TextBox x:Name="ExtraInstructionsText" Grid.Row="8" Grid.Column="1" Height="70" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Database (schema knowledge for the agent)">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Provider:"/>
+                        <ComboBox x:Name="ProviderCombo" Grid.Row="0" Grid.Column="1" Margin="0,0,0,6" SelectionChanged="ProviderCombo_SelectionChanged">
+                            <ComboBoxItem Content="Odbc"/>
+                            <ComboBoxItem Content="SqlClient"/>
+                            <ComboBoxItem Content="OleDb"/>
+                        </ComboBox>
+                        <TextBlock x:Name="DsnLabel" Grid.Row="1" Text="ODBC data source (DSN):"/>
+                        <Grid x:Name="DsnPanel" Grid.Row="1" Grid.Column="1" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="DsnCombo" IsEditable="True" SelectionChanged="DsnCombo_SelectionChanged"/>
+                            <Button Grid.Column="1" Content="Refresh" Margin="6,0,0,0" Click="RefreshDsn_Click"/>
+                        </Grid>
+                        <TextBlock Grid.Row="2" Text="Connection string:" VerticalAlignment="Top"/>
+                        <TextBox x:Name="ConnStringText" Grid.Row="2" Grid.Column="1" Height="50" TextWrapping="Wrap" AcceptsReturn="False"/>
+                        <TextBlock x:Name="ConnHintText" Grid.Row="3" Grid.Column="1" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Row="4" Text="Data access mode:"/>
+                        <ComboBox x:Name="AccessModeCombo" Grid.Row="4" Grid.Column="1" Margin="0,0,0,6">
+                            <ComboBoxItem Tag="SchemaOnly" Content="Schema only — table/column names, types, keys and links (no row data)"/>
+                            <ComboBoxItem Tag="RandomSample" Content="Random sample — schema + a few random rows per table (redacted)"/>
+                            <ComboBoxItem Tag="ReadOnlyQueries" Content="Read-only queries — schema, samples and AI-written SELECTs (redacted)"/>
+                        </ComboBox>
+                        <TextBlock Grid.Row="5" Text="Max rows per sample/query:"/>
+                        <TextBox x:Name="MaxRowsText" Grid.Row="5" Grid.Column="1"/>
+                        <TextBlock Grid.Row="6" Text="SQL timeout (sec):"/>
+                        <TextBox x:Name="SqlTimeoutText" Grid.Row="6" Grid.Column="1"/>
+                        <TextBlock Grid.Row="7" Text="Sensitive keywords:" VerticalAlignment="Top"/>
+                        <TextBox x:Name="SensitiveText" Grid.Row="7" Grid.Column="1" Height="90" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+                        <TextBlock Grid.Row="8" Grid.Column="1" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                                   Text="One per line or comma separated (case-insensitive). Tables and columns whose names contain a keyword are hidden from the AI, queries mentioning one are blocked, and any value containing one is replaced with &lt;redacted&gt;."/>
+                    </Grid>
+                </GroupBox>
+
+                <GroupBox Header="Crystal logon (used to validate by rendering)">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="6" Text="Send page images to AI:"/>
+                        <CheckBox x:Name="SendPagesCheck" Grid.Row="6" Grid.Column="1" VerticalAlignment="Center"
+                                  Content="Let the AI visually review rendered pages (first 2; may include real data)"
+                                  ToolTip="Rendered PDF pages are converted to images and sent to OpenAI. Requires a vision-capable model. Images contain whatever data the report shows; sensitive keywords cannot be redacted from images."/>
+                        <TextBlock Grid.Row="0" Text="Validate by rendering:"/>
+                        <CheckBox x:Name="ValidateRenderCheck" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="1" Text="Server / DSN:"/>
+                        <TextBox x:Name="CrServerText" Grid.Row="1" Grid.Column="1"/>
+                        <TextBlock Grid.Row="2" Text="Database:"/>
+                        <TextBox x:Name="CrDatabaseText" Grid.Row="2" Grid.Column="1"/>
+                        <TextBlock Grid.Row="3" Text="Integrated security:"/>
+                        <CheckBox x:Name="CrIntegratedCheck" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center"/>
+                        <TextBlock Grid.Row="4" Text="User:"/>
+                        <TextBox x:Name="CrUserText" Grid.Row="4" Grid.Column="1"/>
+                        <TextBlock Grid.Row="5" Text="Password:"/>
+                        <PasswordBox x:Name="CrPasswordBox" Grid.Row="5" Grid.Column="1"/>
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+    </DockPanel>
+</Window>

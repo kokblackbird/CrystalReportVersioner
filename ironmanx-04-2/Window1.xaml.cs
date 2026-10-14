@@ -158,6 +158,26 @@ namespace ironmanx_04_2
  }
  }
 
+ private void AiAgentButton_Click(object sender, RoutedEventArgs e)
+ {
+ var path = (OriginalPathText.Text ?? string.Empty).Trim();
+ if (string.IsNullOrWhiteSpace(path)) { Warn("No report file specified in the Original (.rpt) field."); return; }
+ if (!File.Exists(path)) { Warn("Original file not found: " + path); return; }
+
+ var win = new AiAgentWindow(path) { Owner = this };
+ win.ShowDialog();
+ if (!string.IsNullOrEmpty(win.SavedPath))
+ {
+ ChangedPathText.Text = win.SavedPath;
+ Log("AI agent saved changed report: " + win.SavedPath);
+ }
+ }
+
+ private void AiSettingsButton_Click(object sender, RoutedEventArgs e)
+ {
+ new AiSettingsWindow { Owner = this }.ShowDialog();
+ }
+
  private async void ExportForAiButton_Click(object sender, RoutedEventArgs e)
  {
  try

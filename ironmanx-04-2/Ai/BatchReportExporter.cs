@@ -82,6 +82,7 @@ namespace ironmanx_04_2.Ai
                 try
                 {
                     Directory.CreateDirectory(dir);
+                    File.Copy(path, Path.Combine(dir, Path.GetFileName(path)), true);
                     Tuple<Dictionary<string, object>, string, string> spec;
                     using (var tools = await ReportAgentTools.OpenAsync(path, _settings).ConfigureAwait(false))
                         spec = await tools.GetSpecAsync().ConfigureAwait(false);

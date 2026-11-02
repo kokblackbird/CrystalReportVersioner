@@ -1,4 +1,4 @@
-<Window x:Class="ironmanx_04_2.BatchExportWindow"
+﻿<Window x:Class="ironmanx_04_2.BatchExportWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Batch Export Formulas / AI Summaries" Height="640" Width="820"
@@ -82,10 +82,35 @@
                  ToolTip="Optional extra guidance for the AI summaries, e.g. 'focus on business rules and C# conversion difficulty'"/>
 
         <TextBlock Grid.Row="5" Grid.ColumnSpan="3" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
-                   Text="Each report gets formulas.md (all formulas + selection), optionally REPORT_SPEC.md / report-spec.json and summary.md. An INDEX.md lists every report. Only report structure is sent to the AI - no row data."/>
+                   Text="Each report gets a copy of its .rpt, formulas.md (all formulas + selection), optionally REPORT_SPEC.md / report-spec.json and summary.md. An INDEX.md lists every report. Only report structure is sent to the AI - no row data."/>
 
-        <TextBox x:Name="LogText" Grid.Row="6" Grid.ColumnSpan="3" IsReadOnly="True" TextWrapping="Wrap"
-                 VerticalScrollBarVisibility="Auto" FontFamily="Consolas"/>
+        <Grid Grid.Row="6" Grid.ColumnSpan="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="8"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="ListCountText" Text="Reports (click Preview list, untick to skip):"/>
+                <Button Content="All" Margin="4,0,0,6" Click="SelectAll_Click"/>
+                <Button Content="None" Margin="4,0,0,6" Click="SelectNone_Click"/>
+            </StackPanel>
+            <ListBox x:Name="ReportList" Grid.Row="1" Background="{StaticResource BrushSurface}" BorderBrush="{StaticResource BrushBorderDark}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" Content="{Binding Path}" ToolTip="{Binding Path}" Margin="0,0,0,2"/>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Grid.Column="2" Text="Log:"/>
+            <TextBox x:Name="LogText" Grid.Row="1" Grid.Column="2" IsReadOnly="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" Margin="0"/>
+        </Grid>
 
         <StackPanel Grid.Row="7" Grid.ColumnSpan="3" Orientation="Horizontal" HorizontalAlignment="Right">
             <TextBlock x:Name="StatusText" Foreground="{StaticResource BrushTextMuted}" Margin="0,0,16,0"/>

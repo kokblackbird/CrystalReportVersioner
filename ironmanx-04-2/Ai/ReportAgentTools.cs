@@ -59,7 +59,7 @@ namespace ironmanx_04_2.Ai
     /// groups/sorts, tables and subreports, plus live database schema tools.
     /// All positions and sizes are in twips (1440 per inch).
     /// </summary>
-    public sealed class ReportAgentTools : IDisposable
+    public sealed partial class ReportAgentTools : IDisposable
     {
         private readonly StaWorker _worker = new StaWorker();
         private readonly AiSettings _settings;
@@ -327,6 +327,17 @@ namespace ironmanx_04_2.Ai
                 OpenAiClient.Props("parameters", new Dictionary<string, object> { { "type", "object" }, { "description", "Optional report parameter values: {\"ParamName\": \"value\"}" }, { "additionalProperties", new Dictionary<string, object> { { "type", "string" } } } },
                                    "max_pages", OpenAiClient.Int("Pages of text to return (default 2)")), null));
 
+            // ── C# conversion ──
+            T.Add(tool("get_conversion_spec",
+                "Returns the complete structured spec of the report (tables, fields with C# types, joins, parameters, selection, formulas, groups, sorts, summaries, subreports + links, layout) used to convert the report to plain C#.",
+                OpenAiClient.Props(), null));
+            T.Add(tool("set_conversion_notes",
+                "Stores Markdown notes that are embedded in the exported C# conversion spec (REPORT_SPEC.md) for another coding agent such as GitHub Copilot. Use it for: each formula translated to equivalent C#, the reconstructed SQL query with joins and WHERE clause, suggested class/model names, evaluation-time caveats (WhilePrintingRecords, Previous/Next, shared variables) and anything ambiguous. Does not modify the report.",
+                OpenAiClient.Props("markdown", OpenAiClient.Str("Markdown content"),
+                                   "append", OpenAiClient.Bool("Append to existing notes instead of replacing"),
+                                   "user_requirement", OpenAiClient.Str("Optional: a concise restatement of a conversion requirement the user stated in chat (target framework, output format, data library, naming, etc.) to record in the spec's User requirements section"),
+                                   "ideas", OpenAiClient.Str("Optional Markdown: your additional ideas for achieving the user's requirements (architecture options, libraries, performance, testing, migration steps, pitfalls). Appended to the spec's 'Additional ideas' section.")), null));
+
             // ── Reference documents ──
             if (Resources.Documents.Count > 0)
             {
@@ -449,6 +460,8 @@ namespace ironmanx_04_2.Ai
                 case "set_subreport_links": return SetSubreportLinks(a);
                 case "validate_report": return ValidateReport();
                 case "render_report_pdf": return RenderReportPdf(a);
+                case "get_conversion_spec": return GetConversionSpec();
+                case "set_conversion_notes": return SetConversionNotes(a);
                 default: return Error("Unknown tool: " + name);
             }
         }

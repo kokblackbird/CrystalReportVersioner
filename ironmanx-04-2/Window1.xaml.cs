@@ -175,7 +175,12 @@ namespace ironmanx_04_2
 
  private void AiSettingsButton_Click(object sender, RoutedEventArgs e)
  {
- new AiSettingsWindow { Owner = this }.ShowDialog();
+     new AiSettingsWindow { Owner = this }.ShowDialog();
+ }
+
+ private void BatchExportButton_Click(object sender, RoutedEventArgs e)
+ {
+     new BatchExportWindow { Owner = this }.Show();
  }
 
  private async void ExportForAiButton_Click(object sender, RoutedEventArgs e)

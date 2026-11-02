@@ -52,7 +52,10 @@ Crystal specifics:
 - New tables reuse the report's existing connection; link them with add_table / add_table_link.
 - Subreports: create_subreport makes a blank subreport (same connection) or imports a template .rpt. Then call the other tools with subreport=<name> to add tables, fields, formulas, selection and layout inside it, and set_subreport_links to link it to the main report.
 - If a tool returns ok=false, read the error, correct the input and retry; do not repeat the same failing call.
-- Never invent object, section, table or field names; read them from the tools.";
+- Never invent object, section, table or field names; read them from the tools.
+- Databases may be mixed: some tables can be Visual FoxPro (.dbf) reached through ODBC. db_list_tables reports the sqlDialect; follow it when writing SQL (VFP: no quoted identifiers, TOP n needs ORDER BY, ALLTRIM() blank-padded fields, {^yyyy-mm-dd} dates, .T./.F.). VFP tables have no declared foreign keys - infer joins from matching key columns and the report's existing links.
+
+record each one via set_conversion_notes user_requirement. Also propose your own additional ideas for achieving what the user asked (alternative architectures/libraries, performance, testing, incremental migration, risks) via set_conversion_notes ideas, and mention them briefly in your reply.";
             if (!string.IsNullOrWhiteSpace(_settings.ExtraInstructions))
                 prompt += "\n\nAdditional instructions from the user:\n" + _settings.ExtraInstructions.Trim();
             var resources = _tools.Resources.BuildPromptSection();

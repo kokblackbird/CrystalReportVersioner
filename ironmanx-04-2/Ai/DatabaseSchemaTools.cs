@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
@@ -45,6 +45,50 @@ namespace ironmanx_04_2.Ai
         private bool IsSqlServer
         {
             get { return string.Equals(_settings.DbProvider, "SqlClient", StringComparison.OrdinalIgnoreCase); }
+        }
+
+        private bool? _isFoxPro;
+
+        /// <summary>
+        /// True when the connection goes to Visual FoxPro (vfpodbc.dll / VFPOLEDB). VFP has no delimited identifiers
+        /// (double quotes are string literals), free tables do not support transactions, character fields are
+        /// blank-padded and empty dates can come back as invalid values.
+        /// </summary>
+        public bool IsFoxPro
+        {
+            get
+            {
+                if (_isFoxPro.HasValue) return _isFoxPro.Value;
+                var cs = _settings.DbConnectionString ?? string.Empty;
+                bool vfp = cs.IndexOf("FoxPro", StringComparison.OrdinalIgnoreCase) >= 0
+                        || cs.IndexOf("VFPOLEDB", StringComparison.OrdinalIgnoreCase) >= 0
+                        || Regex.IsMatch(cs, @"SourceType\s*=\s*(DBF|DBC)", RegexOptions.IgnoreCase);
+                if (!vfp && string.Equals(_settings.DbProvider, "Odbc", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        using (var conn = (OdbcConnection)CreateConnection())
+                        {
+                            conn.Open();
+                            vfp = (conn.Driver ?? string.Empty).IndexOf("vfp", StringComparison.OrdinalIgnoreCase) >= 0;
+                        }
+                    }
+                    catch { }
+                }
+                _isFoxPro = vfp;
+                return vfp;
+            }
+        }
+
+        /// <summary>SQL dialect hint for the agent.</summary>
+        public string Dialect
+        {
+            get
+            {
+                if (IsSqlServer) return "SQL Server T-SQL (TOP n, [brackets])";
+                if (IsFoxPro) return "Visual FoxPro SQL: SELECT TOP n requires ORDER BY, no quoted identifiers, single quotes for strings, .T./.F. for logicals, {^yyyy-mm-dd} date literals, ALLTRIM() for blank-padded character fields, no CTEs/WITH.";
+                return "ODBC / generic SQL (" + _settings.DbProvider + ")";
+            }
         }
 
         public string TestConnection()
@@ -94,6 +138,7 @@ namespace ironmanx_04_2.Ai
                 {
                     { "database", conn.Database },
                     { "dataSource", conn.DataSource },
+                    { "sqlDialect", Dialect },
                     { "totalMatches", total },
                     { "hiddenAsSensitive", hidden },
                     { "dataAccessMode", _settings.DataAccessMode },
@@ -118,7 +163,7 @@ namespace ironmanx_04_2.Ai
                     {
                         cmd.CommandText = "SELECT * FROM " + QuoteName(tableName) + " WHERE 1=0";
                     cmd.CommandTimeout = _settings.SqlCommandTimeoutSeconds;
-                    using (var reader = cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo))
+                    using (var reader = ExecuteSchemaReader(cmd))
                     {
                         var st = reader.GetSchemaTable();
                         if (st != null)
@@ -142,6 +187,7 @@ namespace ironmanx_04_2.Ai
                 }
 
                 var result = new Dictionary<string, object> { { "table", tableName }, { "columns", columns }, { "hiddenSensitiveColumns", hiddenColumns } };
+                if (IsFoxPro) result["note"] = "Visual FoxPro table: character fields are blank-padded (trim them), empty dates may be NULL, and relationships are not declared - infer joins from matching key columns and the report's existing links.";
                 if (IsSqlServer)
                 {
                     try { result["foreignKeys"] = GetSqlServerForeignKeys(conn, tableName); }
@@ -149,6 +195,13 @@ namespace ironmanx_04_2.Ai
                 }
                 return result;
             }
+        }
+
+        private static DbDataReader ExecuteSchemaReader(DbCommand cmd)
+        {
+            // Some ODBC drivers (e.g. Visual FoxPro) reject KeyInfo; fall back to a plain schema-only read.
+            try { return cmd.ExecuteReader(CommandBehavior.SchemaOnly | CommandBehavior.KeyInfo); }
+            catch (DbException) { return cmd.ExecuteReader(CommandBehavior.SchemaOnly); }
         }
 
         private List<object> GetSqlServerForeignKeys(DbConnection conn, string tableName)
@@ -222,6 +275,8 @@ ORDER BY fk.name";
             if (!(trimmed.StartsWith("select", StringComparison.OrdinalIgnoreCase) || trimmed.StartsWith("with", StringComparison.OrdinalIgnoreCase)))
                 throw new InvalidOperationException("Only SELECT (or WITH ... SELECT) statements are allowed.");
             if (trimmed.Contains(";")) throw new InvalidOperationException("Multiple statements are not allowed.");
+            if (IsFoxPro && !trimmed.StartsWith("select", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Visual FoxPro does not support WITH/CTEs; use a plain SELECT.");
             if (ForbiddenSql.IsMatch(trimmed)) throw new InvalidOperationException("The query contains a forbidden keyword. Only read-only SELECT queries are allowed.");
             if (_settings.IsSensitive(trimmed)) throw new InvalidOperationException("The query references a sensitive keyword from AI Settings and was blocked.");
 
@@ -236,10 +291,16 @@ ORDER BY fk.name";
             using (var conn = CreateConnection())
             {
                 conn.Open();
-                using (var tx = conn.BeginTransaction())
+                // VFP free tables (and some other ODBC sources) do not support transactions; run without one.
+                DbTransaction tx = null;
+                if (!IsFoxPro)
+                {
+                    try { tx = conn.BeginTransaction(); } catch { tx = null; }
+                }
+                using (tx)
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.Transaction = tx;
+                    if (tx != null) cmd.Transaction = tx;
                     cmd.CommandText = sqlText;
                     cmd.CommandTimeout = _settings.SqlCommandTimeoutSeconds;
                     var rows = new List<object>();
@@ -278,7 +339,10 @@ ORDER BY fk.name";
                                 for (int k = 0; k < keep.Count; k++)
                                 {
                                     var i = keep[k];
-                                    var v = r.IsDBNull(i) ? null : r.GetValue(i);
+                                    object v;
+                                    try { v = r.IsDBNull(i) ? null : r.GetValue(i); }
+                                    catch (Exception) { v = null; } // e.g. VFP empty/invalid dates
+                                    if (v is string && IsFoxPro) v = ((string)v).TrimEnd();
                                     if (v is byte[]) v = "<binary " + ((byte[])v).Length + " bytes>";
                                     else if (v is DateTime) v = ((DateTime)v).ToString("s");
                                     else if (v != null && !(v is string) && !v.GetType().IsPrimitive && !(v is decimal)) v = Convert.ToString(v);
@@ -292,7 +356,7 @@ ORDER BY fk.name";
                     }
                     finally
                     {
-                        try { tx.Rollback(); } catch { }
+                        try { if (tx != null) tx.Rollback(); } catch { }
                     }
                     return new Dictionary<string, object>
                     {
@@ -330,6 +394,8 @@ ORDER BY fk.name";
         {
             if (name.IndexOf('[') >= 0 || name.IndexOf('"') >= 0) return name;
             var parts = name.Split('.');
+            // Visual FoxPro has no delimited identifiers ("x" is a string literal) and no schemas.
+            if (IsFoxPro) return parts[parts.Length - 1].Trim();
             if (IsSqlServer || string.Equals(_settings.DbProvider, "OleDb", StringComparison.OrdinalIgnoreCase))
                 return string.Join(".", parts.Select(p => "[" + p.Trim() + "]"));
             return string.Join(".", parts.Select(p => "\"" + p.Trim() + "\""));

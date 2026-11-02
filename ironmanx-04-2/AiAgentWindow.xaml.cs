@@ -134,6 +134,65 @@ namespace ironmanx_04_2
             }
         }
 
+        private async void ExportSpec_Click(object sender, RoutedEventArgs e)
+        {
+            if (_tools == null || _busy) return;
+            var dir = Path.GetDirectoryName(_reportPath) ?? string.Empty;
+            var dlg = new SaveFileDialog
+            {
+                Title = "Choose where to write the C# conversion spec (a folder is created)",
+                Filter = "Folder|*.",
+                FileName = Path.GetFileNameWithoutExtension(_reportPath) + "_csharp_spec",
+                InitialDirectory = dir
+            };
+            if (!dlg.ShowDialog(this).GetValueOrDefault()) return;
+            var folder = Path.Combine(Path.GetDirectoryName(dlg.FileName), Path.GetFileNameWithoutExtension(dlg.FileName));
+
+            SetBusy(true, "Exporting C# conversion spec...");
+            try
+            {
+                var typed = (PromptText.Text ?? string.Empty).Trim();
+                if (typed.Length > 0)
+                {
+                    _tools.AddConversionRequirement(typed);
+                    Append("");
+                    Append("YOU (C# requirement): " + typed);
+                    PromptText.Clear();
+                    if (_settings.IsOpenAiConfigured)
+                    {
+                        EnsureAgent();
+                        SetBusy(true, "AI is adding ideas for your C# requirements...");
+                        _cts = new CancellationTokenSource();
+                        try
+                        {
+                            var answer = await _agent.RunAsync(
+                                "C# conversion requirement from me: \"" + typed + "\"\n" +
+                                "Do not modify the report. Using get_conversion_spec as needed, call set_conversion_notes with " +
+                                "'ideas' containing your additional, concrete ideas for achieving this requirement for this specific report " +
+                                "(architecture, libraries, how formulas/joins/subreports map, performance, testing, migration steps, risks). " +
+                                "If your existing notes need updating for this requirement, update 'markdown' too. Then reply with a short summary of the ideas.",
+                                _cts.Token);
+                            Append("AI: " + answer);
+                        }
+                        catch (OperationCanceledException) { Append("Idea generation stopped; exporting without new ideas."); }
+                        catch (Exception ex) { Append("Idea generation failed (" + ex.Message + "); exporting anyway."); }
+                        finally { _cts.Dispose(); _cts = null; }
+                        SetBusy(true, "Exporting C# conversion spec...");
+                    }
+                }
+                var md = await _tools.ExportConversionSpecAsync(folder);
+                Append("C# conversion spec written to: " + folder);
+                Append("Add the folder to your target solution and give Copilot the contents of copilot-prompt.txt (tip: ask the agent 'prepare this report for C# conversion' first to include translated formulas and SQL).");
+                SetBusy(false, "Spec exported.");
+                try { System.Diagnostics.Process.Start("explorer.exe", "/select,\"" + md + "\""); } catch { }
+            }
+            catch (Exception ex)
+            {
+                Append("ERROR exporting spec: " + ex.Message);
+                SetBusy(false, "Export failed");
+            }
+        }
+
         private async void Save_Click(object sender, RoutedEventArgs e)
         {
             if (_tools == null) return;

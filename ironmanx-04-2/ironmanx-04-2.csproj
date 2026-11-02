@@ -89,6 +89,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="BatchExportWindow.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="Window1.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -110,6 +113,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Ai\AiSettings.cs" />
+    <Compile Include="Ai\BatchReportExporter.cs" />
     <Compile Include="Ai\OpenAiClient.cs" />
     <Compile Include="Ai\DatabaseSchemaTools.cs" />
     <Compile Include="Ai\ReportAgentTools.cs" />
@@ -117,9 +121,13 @@
     <Compile Include="Ai\ResourceLibrary.cs" />
     <Compile Include="Ai\OfficeTextExtractor.cs" />
     <Compile Include="Ai\PdfPageImager.cs" />
+    <Compile Include="Ai\ConversionSpecExporter.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="BatchExportWindow.xaml.cs">
+      <DependentUpon>BatchExportWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="CrystalReport1.cs">
       <AutoGen>True</AutoGen>

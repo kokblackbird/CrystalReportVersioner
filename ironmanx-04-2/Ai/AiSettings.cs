@@ -79,7 +79,32 @@ namespace ironmanx_04_2.Ai
         public string CrystalPasswordProtected { get; set; } = string.Empty;
         public bool CrystalIntegratedSecurity { get; set; } = true;
 
-        // ── Secret accessors (not serialized) ─────────────────────────────────
+        // ── Report search / master index ──────────────────────────────────────────────
+        /// <summary>CSV master index of scanned reports. Blank = %APPDATA%\CrystalReportVersioner\report-index.csv.</summary>
+        public string ReportIndexPath { get; set; } = string.Empty;
+        public string SearchOutputFolder { get; set; } = string.Empty;
+        public string SearchLastFolder { get; set; } = string.Empty;
+        public int SearchDeepScanCount { get; set; } = 15;
+        public int SearchMaxResults { get; set; } = 5;
+
+        [ScriptIgnore]
+        public string EffectiveReportIndexPath
+        {
+            get { return string.IsNullOrWhiteSpace(ReportIndexPath) ? ReportIndex.DefaultPath : Environment.ExpandEnvironmentVariables(ReportIndexPath.Trim()); }
+        }
+
+        [ScriptIgnore]
+        public string EffectiveSearchOutputFolder
+        {
+            get
+            {
+                return string.IsNullOrWhiteSpace(SearchOutputFolder)
+                    ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "ReportSearches")
+                    : Environment.ExpandEnvironmentVariables(SearchOutputFolder.Trim());
+            }
+        }
+
+        // ── Secret accessors (not serialized)
         [ScriptIgnore]
         public string OpenAiApiKey
         {

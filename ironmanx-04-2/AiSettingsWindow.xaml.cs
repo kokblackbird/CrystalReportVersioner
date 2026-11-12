@@ -48,6 +48,11 @@ namespace ironmanx_04_2
             CrIntegratedCheck.IsChecked = _settings.CrystalIntegratedSecurity;
             CrUserText.Text = _settings.CrystalUser;
             CrPasswordBox.Password = _settings.CrystalPassword;
+
+            IndexPathText.Text = _settings.ReportIndexPath;
+            SearchOutputText.Text = _settings.SearchOutputFolder;
+            DeepScanText.Text = _settings.SearchDeepScanCount.ToString(CultureInfo.InvariantCulture);
+            MaxResultsText.Text = _settings.SearchMaxResults.ToString(CultureInfo.InvariantCulture);
         }
 
         private bool ReadFromUi(out string error)
@@ -60,6 +65,13 @@ namespace ironmanx_04_2
             if (!int.TryParse(TimeoutText.Text, out timeout) || timeout < 10) { error = "Request timeout must be at least 10 seconds."; return false; }
             if (!int.TryParse(MaxRowsText.Text, out maxRows) || maxRows < 1 || maxRows > 1000) { error = "Max rows must be 1-1000."; return false; }
             if (!int.TryParse(SqlTimeoutText.Text, out sqlTimeout) || sqlTimeout < 1) { error = "SQL timeout must be at least 1 second."; return false; }
+            int deepScan, maxResults;
+            if (!int.TryParse(DeepScanText.Text, out deepScan) || deepScan < 1 || deepScan > 500) { error = "Candidates to deep scan must be 1-500."; return false; }
+            if (!int.TryParse(MaxResultsText.Text, out maxResults) || maxResults < 1 || maxResults > 100) { error = "Max results must be 1-100."; return false; }
+            _settings.ReportIndexPath = (IndexPathText.Text ?? string.Empty).Trim();
+            _settings.SearchOutputFolder = (SearchOutputText.Text ?? string.Empty).Trim();
+            _settings.SearchDeepScanCount = deepScan;
+            _settings.SearchMaxResults = maxResults;
 
             _settings.OpenAiApiKey = ApiKeyBox.Password.Trim();
             _settings.OpenAiBaseUrl = string.IsNullOrWhiteSpace(BaseUrlText.Text) ? "https://api.openai.com/v1" : BaseUrlText.Text.Trim().TrimEnd('/');

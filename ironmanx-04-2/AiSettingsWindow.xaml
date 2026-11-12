@@ -189,6 +189,30 @@
                         <PasswordBox x:Name="CrPasswordBox" Grid.Row="5" Grid.Column="1"/>
                     </Grid>
                 </GroupBox>
+
+                <GroupBox Header="Report search (master index)">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/><RowDefinition/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Text="Index file (.csv):"/>
+                        <TextBox x:Name="IndexPathText" Grid.Row="0" Grid.Column="1"
+                                 ToolTip="Leave blank for %APPDATA%\CrystalReportVersioner\report-index.csv"/>
+                        <TextBlock Grid.Row="1" Text="Search output folder:"/>
+                        <TextBox x:Name="SearchOutputText" Grid.Row="1" Grid.Column="1"
+                                 ToolTip="Leave blank for Documents\ReportSearches"/>
+                        <TextBlock Grid.Row="2" Text="Candidates to deep scan:"/>
+                        <TextBox x:Name="DeepScanText" Grid.Row="2" Grid.Column="1"/>
+                        <TextBlock Grid.Row="3" Text="Max results:"/>
+                        <TextBox x:Name="MaxResultsText" Grid.Row="3" Grid.Column="1"/>
+                        <TextBlock Grid.Row="4" Grid.Column="1" Foreground="{StaticResource BrushTextMuted}" TextWrapping="Wrap"
+                                   Text="Blank paths use the defaults. The index grows with every search and with Learning mode."/>
+                    </Grid>
+                </GroupBox>
             </StackPanel>
         </ScrollViewer>
     </DockPanel>

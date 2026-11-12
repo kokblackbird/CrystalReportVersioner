@@ -183,6 +183,11 @@ namespace ironmanx_04_2
      new BatchExportWindow { Owner = this }.Show();
  }
 
+ private void ReportSearchButton_Click(object sender, RoutedEventArgs e)
+ {
+     new ReportSearchWindow { Owner = this }.Show();
+ }
+
  private async void ExportForAiButton_Click(object sender, RoutedEventArgs e)
  {
  try
